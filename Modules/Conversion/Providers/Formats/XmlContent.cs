@@ -4,7 +4,7 @@ using System.Xml.Serialization;
 
 using GenHTTP.Api.Protocol;
 
-namespace GenHTTP.Modules.Webservices.Formats
+namespace GenHTTP.Modules.Conversion.Providers.Formats
 {
 
     public class XmlContent : IResponseContent

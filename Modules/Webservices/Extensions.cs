@@ -4,9 +4,9 @@ namespace GenHTTP.Modules.Webservices
 {
 
     /// <summary>
-    /// Allows to easily add resources to layouts.
+    /// Extensions to simplify handling of service resources.
     /// </summary>
-    public static class LayoutExtensions
+    public static class Extensions
     {
 
         /// <summary>
@@ -15,7 +15,7 @@ namespace GenHTTP.Modules.Webservices
         /// </summary>
         /// <typeparam name="T">The type of the resource to be added</typeparam>
         /// <param name="path">The path the resource should be available at</param>
-        public static LayoutBuilder Add<T>(this LayoutBuilder layout, string path) where T : new()
+        public static LayoutBuilder AddService<T>(this LayoutBuilder layout, string path) where T : new()
         {
             return layout.Add(path, Resource.From<T>());
         }
@@ -26,7 +26,7 @@ namespace GenHTTP.Modules.Webservices
         /// </summary>
         /// <param name="path">The path the resource should be available at</param>
         /// <param name="instance">The webservice resource instance</param>
-        public static LayoutBuilder Add(this LayoutBuilder layout, string path, object instance)
+        public static LayoutBuilder AddService(this LayoutBuilder layout, string path, object instance)
         {
             return layout.Add(path, Resource.From(instance));
         }

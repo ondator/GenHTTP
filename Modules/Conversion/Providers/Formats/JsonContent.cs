@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 using GenHTTP.Api.Protocol;
 
-namespace GenHTTP.Modules.Webservices.Formats
+namespace GenHTTP.Modules.Conversion.Providers.Formats
 {
 
     public class JsonContent : IResponseContent

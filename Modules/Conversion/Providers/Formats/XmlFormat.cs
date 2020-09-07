@@ -7,7 +7,7 @@ using GenHTTP.Api.Protocol;
 
 using GenHTTP.Modules.Basics;
 
-namespace GenHTTP.Modules.Webservices.Formats
+namespace GenHTTP.Modules.Conversion.Providers.Formats
 {
 
     public class XmlFormat : ISerializationFormat

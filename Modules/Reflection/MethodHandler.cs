@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Protocol;
@@ -10,51 +8,26 @@ using GenHTTP.Api.Routing;
 
 using GenHTTP.Modules.Basics;
 
-namespace GenHTTP.Modules.Webservices
+namespace GenHTTP.Modules.Reflection
 {
 
-    public class ResourceRouter : IHandler
+    public class MethodHandler : IHandler
     {
 
         #region Get-/Setters
 
         public IHandler Parent { get; }
 
-        private Type Type { get; }
-
-        private object Instance { get; }
-
         private List<MethodProvider> Methods { get; }
-
-        private SerializationRegistry Serialization { get; }
 
         #endregion
 
         #region Initialization
 
-        public ResourceRouter(IHandler parent, object instance, SerializationRegistry formats)
+        public MethodHandler(IHandler parent, List<MethodProvider> methods)
         {
             Parent = parent;
-
-            Instance = instance;
-            Type = instance.GetType();
-
-            Serialization = formats;
-
-            Methods = new List<MethodProvider>(AnalyzeMethods());
-        }
-
-        private IEnumerable<MethodProvider> AnalyzeMethods()
-        {
-            foreach (var method in Type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
-            {
-                var attribute = method.GetCustomAttribute<MethodAttribute>(true);
-
-                if (attribute != null)
-                {
-                    yield return new MethodProvider(Parent, method, Instance, attribute, Serialization);
-                }
-            }
+            Methods = methods;
         }
 
         #endregion
@@ -67,7 +40,7 @@ namespace GenHTTP.Modules.Webservices
 
             if (methods.Any())
             {
-                var matchingMethods = methods.Where(m => request.Method.Equals(m.MetaData.RequestMethod)).ToList();
+                var matchingMethods = methods.Where(m => m.MetaData.SupportedMethods.Contains(request.Method)).ToList();
 
                 if (matchingMethods.Count == 1)
                 {
@@ -88,19 +61,19 @@ namespace GenHTTP.Modules.Webservices
 
         public IEnumerable<ContentElement> GetContent(IRequest request)
         {
-            foreach (var method in Methods.Where(m => m.MetaData.RequestMethod == RequestMethod.GET))
+            foreach (var method in Methods.Where(m => m.MetaData.SupportedMethods.Contains(new FlexibleRequestMethod(RequestMethod.GET))))
             {
                 var parts = new List<string>(this.GetRoot(request.Server.Handler, false).Parts);
 
                 WebPath path;
 
-                if (method.MetaData.Path == null)
+                if (method.ParsedPath == null)
                 {
                     path = new WebPath(parts, true);
                 }
                 else
                 {
-                    parts.Add(method.MetaData.Path);
+                    parts.Add(method.ParsedPath.ToString());
                     path = new WebPath(parts, false);
                 }
 

@@ -10,15 +10,13 @@ using System.Threading.Tasks;
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Protocol;
 
-using GenHTTP.Modules.Basics;
-using GenHTTP.Modules.IO;
-using GenHTTP.Modules.Webservices.Util;
+using GenHTTP.Modules.Conversion.Providers;
 
-namespace GenHTTP.Modules.Webservices
+namespace GenHTTP.Modules.Reflection
 {
 
     /// <summary>
-    /// Allows to invoke a function on a webservice resource.
+    /// Allows to invoke a function on a service oriented resource.
     /// </summary>
     /// <remarks>
     /// This provider analyzes the target method to be invoked and supplies
@@ -33,19 +31,20 @@ namespace GenHTTP.Modules.Webservices
         public IHandler Parent { get; }
 
         /// <summary>
-        /// The meta data the method has been annotated with.
-        /// </summary>
-        public MethodAttribute MetaData { get; }
-
-        /// <summary>
         /// The path of the method, converted into a regular
         /// expression to be evaluated at runtime.
         /// </summary>
         public Regex ParsedPath { get; }
 
+        public MethodAttribute MetaData { get; }
+
         private MethodInfo Method { get; }
 
-        private object Instance { get; }
+        private Func<object> InstanceProvider { get; }
+
+        private Func<IRequest, IResponse?>? Precondition { get; }
+
+        private Func<IRequest, object?, IResponse?> ResponseProvider { get; }
 
         private SerializationRegistry Serialization { get; }
 
@@ -53,16 +52,20 @@ namespace GenHTTP.Modules.Webservices
 
         #region Initialization
 
-        public MethodProvider(IHandler parent, MethodInfo method, object instance, MethodAttribute metaData, SerializationRegistry formats)
+        public MethodProvider(IHandler parent, MethodInfo method, Regex path, Func<object> instanceProvider, MethodAttribute metaData,
+            Func<IRequest, IResponse?>? precondition, Func<IRequest, object?, IResponse?> responseProvider, SerializationRegistry serialization)
         {
             Parent = parent;
 
             Method = method;
             MetaData = metaData;
-            Instance = instance;
-            Serialization = formats;
+            InstanceProvider = instanceProvider;
+            Serialization = serialization;
 
-            ParsedPath = PathHelper.Parse(metaData.Path);
+            ResponseProvider = responseProvider;
+            Precondition = precondition;
+
+            ParsedPath = path;
         }
 
         #endregion
@@ -71,10 +74,22 @@ namespace GenHTTP.Modules.Webservices
 
         public IResponse? Handle(IRequest request)
         {
-            return GetResponse(request, Invoke(request));
+            var arguments = GetArguments(request);
+
+            if (Precondition != null)
+            {
+                var result = Precondition(request);
+
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+
+            return ResponseProvider(request, Invoke(request, arguments));
         }
 
-        private object? Invoke(IRequest request)
+        private object?[] GetArguments(IRequest request)
         {
             var targetParameters = Method.GetParameters();
 
@@ -112,7 +127,7 @@ namespace GenHTTP.Modules.Webservices
                     continue;
                 }
 
-                if (par.ParameterType.IsPrimitive || par.ParameterType == typeof(string) || par.ParameterType.IsEnum)
+                if (par.CheckSimple())
                 {
                     // is there a named parameter?
                     var sourceArgument = sourceParameters.Groups[par.Name];
@@ -135,6 +150,8 @@ namespace GenHTTP.Modules.Webservices
                 }
                 else
                 {
+                    // ToDo: form encoding
+
                     // deserialize from body
                     var deserializer = Serialization.GetDeserialization(request);
 
@@ -153,9 +170,14 @@ namespace GenHTTP.Modules.Webservices
                 }
             }
 
+            return targetArguments;
+        }
+
+        private object? Invoke(IRequest request, object?[] arguments)
+        {
             try
             {
-                return Method.Invoke(Instance, targetArguments);
+                return Method.Invoke(InstanceProvider(), arguments);
             }
             catch (TargetInvocationException e)
             {
@@ -164,69 +186,31 @@ namespace GenHTTP.Modules.Webservices
             }
         }
 
-        private IResponse GetResponse(IRequest request, object? result)
+        public IEnumerable<ContentElement> GetContent(IRequest request) => Enumerable.Empty<ContentElement>();
+
+        private object? ChangeType(string value, Type type)
         {
-            // no result = 204
-            if (result == null)
+            if (string.IsNullOrEmpty(value) && Nullable.GetUnderlyingType(type) != null)
             {
-                return request.Respond().Status(ResponseStatus.NoContent).Build();
+                return null;
             }
 
-            var type = result.GetType();
-
-            // response returned by the method
-            if (result is IResponseBuilder response)
-            {
-                return response.Build();
-            }
-
-            // stream returned as a download
-            if (result is Stream download)
-            {
-                return request.Respond()
-                              .Content(download)
-                              .Type(ContentType.ApplicationForceDownload)
-                              .Build();
-            }
-
-            // basic types should produce a string value
-            if (type.IsPrimitive || type == typeof(string) || type.IsEnum)
-            {
-                return request.Respond().Content(result.ToString())
-                                        .Type(ContentType.TextPlain)
-                                        .Build();
-            }
-
-            // serialize the result
-            var serializer = Serialization.GetSerialization(request);
-
-            if (serializer == null)
-            {
-                throw new ProviderException(ResponseStatus.UnsupportedMediaType, "Requested format is not supported");
-            }
-
-            return serializer.Serialize(request, result)
-                             .Build();
-        }
-
-        private object ChangeType(string value, Type type)
-        {
             try
             {
+                var actualType = Nullable.GetUnderlyingType(type) ?? type;
+
                 if (type.IsEnum)
                 {
-                    return Enum.Parse(type, value);
+                    return Enum.Parse(actualType, value);
                 }
 
-                return Convert.ChangeType(value, type);
+                return Convert.ChangeType(value, actualType);
             }
             catch (Exception e)
             {
                 throw new ProviderException(ResponseStatus.BadRequest, $"Unable to convert value '{value}' to type '{type}'", e);
             }
         }
-
-        public IEnumerable<ContentElement> GetContent(IRequest request) => Enumerable.Empty<ContentElement>();
 
         #endregion
 

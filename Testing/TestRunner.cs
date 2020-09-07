@@ -100,7 +100,12 @@ namespace GenHTTP.Testing.Acceptance
             return GetRequest(uri).GetSafeResponse();
         }
 
-#endregion
+        public HttpWebResponse GetResponse(HttpWebRequest request)
+        {
+            return request.GetSafeResponse();
+        }
+
+        #endregion
 
         #region IDisposable Support
 

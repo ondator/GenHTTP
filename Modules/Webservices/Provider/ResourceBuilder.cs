@@ -1,7 +1,9 @@
 ﻿using GenHTTP.Api.Content;
 using GenHTTP.Api.Infrastructure;
+using GenHTTP.Modules.Conversion;
+using GenHTTP.Modules.Conversion.Providers;
 
-namespace GenHTTP.Modules.Webservices
+namespace GenHTTP.Modules.Webservices.Provider
 {
 
     public class ResourceBuilder : IHandlerBuilder
