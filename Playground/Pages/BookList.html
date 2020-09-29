@@ -1,0 +1,20 @@
+﻿<table>
+    <thead>
+        <tr>
+            <td>ID</td>
+            <td>Title</td>
+            <td>Read</td>
+        </tr>
+    </thead>
+    <tbody>
+        {{~ for book in data ~}}
+        <tr>
+            <td>{{ book.id }}</td>
+            <td>{{ book.title }}</td>
+            <td>{{ book.read }}</td>
+        </tr>
+        {{~ end ~}}
+    </tbody>
+</table>
+
+<a href="./create">Create</a>

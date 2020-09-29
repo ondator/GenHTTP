@@ -1,6 +1,8 @@
 ﻿using GenHTTP.Api.Protocol;
 using GenHTTP.Modules.Conversion.Providers;
-using GenHTTP.Modules.Conversion.Providers.Formats;
+using GenHTTP.Modules.Conversion.Providers.Forms;
+using GenHTTP.Modules.Conversion.Providers.Json;
+using GenHTTP.Modules.Conversion.Providers.Xml;
 
 namespace GenHTTP.Modules.Conversion
 {
@@ -20,6 +22,7 @@ namespace GenHTTP.Modules.Conversion
         {
             return new SerializationBuilder().Default(ContentType.ApplicationJson)
                                              .Add(ContentType.ApplicationJson, new JsonFormat())
+                                             .Add(ContentType.ApplicationWwwFormUrlEncoded, new FormFormat())
                                              .Add(ContentType.TextXml, new XmlFormat());
         }
 

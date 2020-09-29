@@ -7,7 +7,7 @@ using GenHTTP.Api.Protocol;
 
 using GenHTTP.Modules.Basics;
 
-namespace GenHTTP.Modules.Conversion.Providers.Formats
+namespace GenHTTP.Modules.Conversion.Providers.Json
 {
 
     public class JsonFormat : ISerializationFormat
