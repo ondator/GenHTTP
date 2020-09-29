@@ -77,7 +77,7 @@ namespace GenHTTP.Modules.Webservices.Provider
                     builder.Replace(match.Value, match.Groups[1].Value.ToParameter());
                 }
 
-                return new Regex($"^/{builder}$");
+                return new Regex($"^/{builder}$", RegexOptions.Compiled);
             }
 
             return EMPTY;

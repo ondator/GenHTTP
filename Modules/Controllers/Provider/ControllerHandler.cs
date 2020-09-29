@@ -57,13 +57,13 @@ namespace GenHTTP.Modules.Controllers.Provider
 
             if (method.Name == "Index")
             {
-                return pathArgs.Length > 0 ? new Regex($"^/{pathArgs}(/|)$") : EMPTY;
+                return pathArgs.Length > 0 ? new Regex($"^/{pathArgs}(/|)$", RegexOptions.Compiled) : EMPTY;
             }
             else
             {
                 var path = $"^/{method.Name.ToLowerInvariant()}";
 
-                return pathArgs.Length > 0 ? new Regex($"{path}/{pathArgs}(/|)$") : new Regex($"{path}(/|)$");
+                return pathArgs.Length > 0 ? new Regex($"{path}/{pathArgs}(/|)$", RegexOptions.Compiled) : new Regex($"{path}(/|)$", RegexOptions.Compiled);
             }
         }
 
