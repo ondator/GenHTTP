@@ -2,7 +2,7 @@
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Content.Templating;
 
-namespace GenHTTP.Modules.Scriban
+namespace GenHTTP.Modules.Scriban.Providers
 {
 
     public class ScribanPageProviderBuilder<T> : IHandlerBuilder where T : PageModel

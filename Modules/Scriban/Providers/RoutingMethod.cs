@@ -10,7 +10,7 @@ using GenHTTP.Api.Routing;
 
 using GenHTTP.Modules.Basics;
 
-namespace GenHTTP.Modules.Scriban
+namespace GenHTTP.Modules.Scriban.Providers
 {
 
     public class RoutingMethod : IScriptCustomFunction

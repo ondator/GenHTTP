@@ -7,7 +7,7 @@ using GenHTTP.Modules.Basics;
 
 using RazorEngineCore;
 
-namespace GenHTTP.Modules.Razor
+namespace GenHTTP.Modules.Razor.Providers
 {
 
     public class RazorRenderer<T> : IRenderer<T> where T : class, IBaseModel
@@ -36,7 +36,7 @@ namespace GenHTTP.Modules.Razor
         public string Render(T model)
         {
             var template = GetTemplate();
-            
+
             return template.Run((instance) =>
             {
                 instance.Model = model;
@@ -61,6 +61,7 @@ namespace GenHTTP.Modules.Razor
                 builder.AddAssemblyReference(Assembly.GetExecutingAssembly());
 
                 builder.AddUsing("GenHTTP.Modules.Razor");
+                builder.AddUsing("GenHTTP.Modules.Razor.Providers");
             });
         }
 

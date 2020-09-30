@@ -1,17 +1,17 @@
-﻿using GenHTTP.Api.Content;
+﻿using GenHTTP.Api.Infrastructure;
+using GenHTTP.Api.Content;
 using GenHTTP.Api.Content.Templating;
-using GenHTTP.Api.Infrastructure;
 
-namespace GenHTTP.Modules.Scriban
+namespace GenHTTP.Modules.Razor.Providers
 {
 
-    public class ScribanRendererBuilder<T> : IBuilder<IRenderer<T>> where T : class, IBaseModel
+    public class RazorRendererBuilder<T> : IBuilder<IRenderer<T>> where T : class, IBaseModel
     {
         protected IResourceProvider? _TemplateProvider;
 
         #region Functionality
 
-        public ScribanRendererBuilder<T> TemplateProvider(IResourceProvider templateProvider)
+        public RazorRendererBuilder<T> TemplateProvider(IResourceProvider templateProvider)
         {
             _TemplateProvider = templateProvider;
             return this;
@@ -24,7 +24,7 @@ namespace GenHTTP.Modules.Scriban
                 throw new BuilderMissingPropertyException("Template Provider");
             }
 
-            return new ScribanRenderer<T>(_TemplateProvider);
+            return new RazorRenderer<T>(_TemplateProvider);
         }
 
         #endregion

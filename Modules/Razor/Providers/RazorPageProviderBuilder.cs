@@ -2,7 +2,7 @@
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Content.Templating;
 
-namespace GenHTTP.Modules.Razor
+namespace GenHTTP.Modules.Razor.Providers
 {
 
     public class RazorPageProviderBuilder<T> : IHandlerBuilder where T : PageModel

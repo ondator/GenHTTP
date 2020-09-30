@@ -6,10 +6,10 @@ using GenHTTP.Api.Protocol;
 
 using GenHTTP.Modules.Basics;
 
-namespace GenHTTP.Modules.Scriban
+namespace GenHTTP.Modules.Razor.Providers
 {
 
-    public class ScribanPageProvider<T> : IHandler where T : PageModel
+    public class RazorPageProvider<T> : IHandler where T : PageModel
     {
 
         #region Get-/Setters
@@ -20,7 +20,7 @@ namespace GenHTTP.Modules.Scriban
 
         public ModelProvider<T> ModelProvider { get; }
 
-        public ScribanRenderer<T> Renderer { get; }
+        public RazorRenderer<T> Renderer { get; }
 
         public string? Title { get; }
 
@@ -28,7 +28,7 @@ namespace GenHTTP.Modules.Scriban
 
         #region Initialization
 
-        public ScribanPageProvider(IHandler parent, IResourceProvider templateProvider, ModelProvider<T> modelProvider, string? title)
+        public RazorPageProvider(IHandler parent, IResourceProvider templateProvider, ModelProvider<T> modelProvider, string? title)
         {
             Parent = parent;
 
@@ -36,14 +36,14 @@ namespace GenHTTP.Modules.Scriban
             ModelProvider = modelProvider;
             Title = title;
 
-            Renderer = new ScribanRenderer<T>(TemplateProvider);
+            Renderer = new RazorRenderer<T>(TemplateProvider);
         }
 
         #endregion
 
         #region Functionality
 
-        public IResponse? Handle(IRequest request)
+        public IResponse Handle(IRequest request)
         {
             var model = ModelProvider(request, this);
 
