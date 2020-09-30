@@ -1,33 +1,70 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Protocol;
-using GenHTTP.Api.Routing;
 
-using GenHTTP.Modules.Basics;
+using GenHTTP.Modules.Conversion;
+using GenHTTP.Modules.Conversion.Providers;
+using GenHTTP.Modules.Conversion.Providers.Forms;
 
 namespace GenHTTP.Modules.Reflection
 {
 
+    /// <summary>
+    /// Allows to invoke a function on a service oriented resource.
+    /// </summary>
+    /// <remarks>
+    /// This provider analyzes the target method to be invoked and supplies
+    /// the required arguments. The result of the method is analyzed and
+    /// converted into a HTTP response.
+    /// </remarks>
     public class MethodHandler : IHandler
     {
+        private static FormFormat _FormFormat = new FormFormat();
 
         #region Get-/Setters
 
         public IHandler Parent { get; }
 
-        private List<MethodProvider> Methods { get; }
+        public MethodRouting Routing { get; }
+
+        public MethodAttribute MetaData { get; }
+
+        public MethodInfo Method { get; }
+
+        private Func<object> InstanceProvider { get; }
+
+        private Func<IRequest, IResponse?>? Precondition { get; }
+
+        private Func<IRequest, IHandler, object?, IResponse?> ResponseProvider { get; }
+
+        private SerializationRegistry Serialization { get; }
 
         #endregion
 
         #region Initialization
 
-        public MethodHandler(IHandler parent, List<MethodProvider> methods)
+        public MethodHandler(IHandler parent, MethodInfo method, MethodRouting routing, Func<object> instanceProvider, MethodAttribute metaData,
+            Func<IRequest, IResponse?>? precondition, Func<IRequest, IHandler, object?, IResponse?> responseProvider, SerializationRegistry serialization)
         {
             Parent = parent;
-            Methods = methods;
+
+            Method = method;
+            MetaData = metaData;
+            InstanceProvider = instanceProvider;
+            Serialization = serialization;
+
+            ResponseProvider = responseProvider;
+            Precondition = precondition;
+
+            Routing = routing;
         }
 
         #endregion
@@ -36,52 +73,129 @@ namespace GenHTTP.Modules.Reflection
 
         public IResponse? Handle(IRequest request)
         {
-            var methods = FindProviders(request.Target.GetRemaining().ToString());
+            var arguments = GetArguments(request);
 
-            if (methods.Any())
+            if (Precondition != null)
             {
-                var matchingMethods = methods.Where(m => m.MetaData.SupportedMethods.Contains(request.Method)).ToList();
+                var result = Precondition(request);
 
-                if (matchingMethods.Count == 1)
+                if (result != null)
                 {
-                    return matchingMethods.First().Handle(request);
-                }
-                else if (methods.Count > 1)
-                {
-                    throw new ProviderException(ResponseStatus.BadRequest, $"There are multiple methods matching '{request.Target.Path}'");
-                }
-                else
-                {
-                    throw new ProviderException(ResponseStatus.MethodNotAllowed, $"There is no method of a matching request type");
+                    return result;
                 }
             }
 
-            return null;
+            return ResponseProvider(request, this, Invoke(request, arguments));
         }
 
-        public IEnumerable<ContentElement> GetContent(IRequest request)
+        private object?[] GetArguments(IRequest request)
         {
-            foreach (var method in Methods.Where(m => m.MetaData.SupportedMethods.Contains(new FlexibleRequestMethod(RequestMethod.GET))))
+            var targetParameters = Method.GetParameters();
+
+            var targetArguments = new object?[targetParameters.Length];
+
+            var sourceParameters = Routing.ParsedPath.Match(request.Target.GetRemaining().ToString());
+
+            var bodyArguments = (targetParameters.Length > 0) ? _FormFormat.GetContent(request) : null;
+
+            for (int i = 0; i < targetParameters.Length; i++)
             {
-                var parts = new List<string>(this.GetRoot(request.Server.Handler, false).Parts);
+                var par = targetParameters[i];
 
-                WebPath path;
-
-                if (method.ParsedPath == null)
+                // request
+                if (par.ParameterType == typeof(IRequest))
                 {
-                    path = new WebPath(parts, true);
+                    targetArguments[i] = request;
+                    continue;
+                }
+
+                // handler
+                if (par.ParameterType == typeof(IHandler))
+                {
+                    targetArguments[i] = this;
+                    continue;
+                }
+
+                // input stream
+                if (par.ParameterType == typeof(Stream))
+                {
+                    if (request.Content == null)
+                    {
+                        throw new ProviderException(ResponseStatus.BadRequest, "Request body expected");
+                    }
+
+                    targetArguments[i] = request.Content;
+                    continue;
+                }
+
+                if (par.CheckSimple())
+                {
+                    // is there a named parameter?
+                    var sourceArgument = sourceParameters.Groups[par.Name];
+
+                    if (sourceArgument.Success)
+                    {
+                        targetArguments[i] = sourceArgument.Value.ConvertTo(par.ParameterType);
+                        continue;
+                    }
+
+                    // is there a query parameter?
+                    if (request.Query.TryGetValue(par.Name, out var queryValue))
+                    {
+                        targetArguments[i] = queryValue.ConvertTo(par.ParameterType);
+                        continue;
+                    }
+
+                    // is there a parameter from the body?
+                    if (bodyArguments != null)
+                    {
+                        if (bodyArguments.TryGetValue(par.Name, out var bodyValue))
+                        {
+                            targetArguments[i] = bodyValue.ConvertTo(par.ParameterType);
+                            continue;
+                        }
+                    }
+
+                    // assume the default value
+                    continue;
                 }
                 else
                 {
-                    parts.Add(method.ParsedPath.ToString());
-                    path = new WebPath(parts, false);
-                }
+                    // deserialize from body
+                    var deserializer = Serialization.GetDeserialization(request);
 
-                yield return new ContentElement(path, Path.GetFileName(path.ToString()), path.ToString().GuessContentType() ?? ContentType.ApplicationForceDownload, null);
+                    if (deserializer == null)
+                    {
+                        throw new ProviderException(ResponseStatus.UnsupportedMediaType, "Requested format is not supported");
+                    }
+
+                    if (request.Content == null)
+                    {
+                        throw new ProviderException(ResponseStatus.BadRequest, "Request body expected");
+                    }
+
+                    targetArguments[i] = Task.Run(async () => await deserializer.Deserialize(request.Content, par.ParameterType)).Result;
+                    continue;
+                }
+            }
+
+            return targetArguments;
+        }
+
+        private object? Invoke(IRequest request, object?[] arguments)
+        {
+            try
+            {
+                return Method.Invoke(InstanceProvider(), arguments);
+            }
+            catch (TargetInvocationException e)
+            {
+                ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                return null; // nop
             }
         }
 
-        private List<MethodProvider> FindProviders(string path) => Methods.Where(m => m.ParsedPath?.IsMatch(path) ?? false).ToList();
+        public IEnumerable<ContentElement> GetContent(IRequest request) => Enumerable.Empty<ContentElement>();
 
         #endregion
 

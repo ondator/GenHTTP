@@ -102,7 +102,7 @@ namespace GenHTTP.Modules.Layouting.Provider
             return result;
         }
 
-        public void Append(PathBuilder path, IHandler? child = null)
+        public void Append(PathBuilder path, IRequest request, IHandler? child = null)
         {
             if (child != null)
             {

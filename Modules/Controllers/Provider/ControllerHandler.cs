@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Protocol;
+using GenHTTP.Api.Routing;
 
 using GenHTTP.Modules.Basics;
 using GenHTTP.Modules.Conversion.Providers;
@@ -14,19 +14,17 @@ using GenHTTP.Modules.Reflection;
 namespace GenHTTP.Modules.Controllers.Provider
 {
 
-    // ToDo: Enable routing (IRootPathAppender, IHandlerResolver)
+    // ToDo: Enable proper content (test with sitemap), with "ContentHint" for path variables?
 
-    // ToDo: Enable proper content (test with sitemap)
-
-    public class ControllerHandler<T> : IHandler where T : new()
+    public class ControllerHandler<T> : IHandler, IHandlerResolver where T : new()
     {
-        private static readonly Regex EMPTY = new Regex("^(/|)$", RegexOptions.Compiled);
+        private static readonly MethodRouting EMPTY = new MethodRouting("^(/|)$", null);
 
         #region Get-/Setters
 
         public IHandler Parent { get; }
 
-        private MethodHandler Methods { get; }
+        private MethodCollection Provider { get; }
 
         #endregion
 
@@ -36,12 +34,10 @@ namespace GenHTTP.Modules.Controllers.Provider
         {
             Parent = parent;
 
-            var methods = new List<MethodProvider>(AnalyzeMethods(typeof(T), formats));
-
-            Methods = new MethodHandler(this, methods);
+            Provider = new MethodCollection(this, AnalyzeMethods(typeof(T), formats));
         }
 
-        private IEnumerable<MethodProvider> AnalyzeMethods(Type type, SerializationRegistry formats)
+        private IEnumerable<Func<IHandler, MethodHandler>> AnalyzeMethods(Type type, SerializationRegistry formats)
         {
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
             {
@@ -51,23 +47,25 @@ namespace GenHTTP.Modules.Controllers.Provider
 
                 var path = DeterminePath(method, arguments);
 
-                yield return new MethodProvider(this, method, path, () => new T(), annotation, Preconditions, GetResponse, formats);
+                yield return (parent) => new MethodHandler(parent, method, path, () => new T(), annotation, Preconditions, GetResponse, formats);
             }
         }
 
-        private Regex DeterminePath(MethodInfo method, List<string> arguments)
+        private MethodRouting DeterminePath(MethodInfo method, List<string> arguments)
         {
             var pathArgs = string.Join('/', arguments.Select(a => a.ToParameter()));
 
             if (method.Name == "Index")
             {
-                return pathArgs.Length > 0 ? new Regex($"^/{pathArgs}(/|)$", RegexOptions.Compiled) : EMPTY;
+                return pathArgs.Length > 0 ? new MethodRouting($"^/{pathArgs}(/|)$", null) : EMPTY;
             }
             else
             {
-                var path = $"^/{method.Name.ToLowerInvariant()}";
+                var name = method.Name.ToLowerInvariant();
 
-                return pathArgs.Length > 0 ? new Regex($"{path}/{pathArgs}(/|)$", RegexOptions.Compiled) : new Regex($"{path}(/|)$", RegexOptions.Compiled);
+                var path = $"^/{name}";
+
+                return pathArgs.Length > 0 ? new MethodRouting($"{path}/{pathArgs}(/|)$", name) : new MethodRouting($"{path}(/|)$", name);
             }
         }
 
@@ -102,9 +100,9 @@ namespace GenHTTP.Modules.Controllers.Provider
 
         #region Functionality
 
-        public IEnumerable<ContentElement> GetContent(IRequest request) => Methods.GetContent(request);
+        public IEnumerable<ContentElement> GetContent(IRequest request) => Provider.GetContent(request);
 
-        public IResponse? Handle(IRequest request) => Methods.Handle(request);
+        public IResponse? Handle(IRequest request) => Provider.Handle(request);
 
         private IResponse? Preconditions(IRequest request)
         {
@@ -121,7 +119,7 @@ namespace GenHTTP.Modules.Controllers.Provider
             return null;
         }
 
-        private IResponse? GetResponse(IRequest request, object? result)
+        private IResponse? GetResponse(IRequest request, IHandler methodProvider, object? result)
         {
             if (result == null)
             {
@@ -130,7 +128,7 @@ namespace GenHTTP.Modules.Controllers.Provider
 
             if (result is IHandlerBuilder handlerBuilder)
             {
-                return handlerBuilder.Build(this).Handle(request);
+                return handlerBuilder.Build(methodProvider).Handle(request);
             }
 
             if (result is IHandler handler)
@@ -149,6 +147,22 @@ namespace GenHTTP.Modules.Controllers.Provider
             }
 
             throw new ProviderException(ResponseStatus.InternalServerError, "Result type of controller methods must be one of: IHandlerBuilder, IHandler, IResponseBuilder, IResponse");
+        }
+
+        public IHandler? Find(string segment)
+        {
+            if (segment == "{controller}")
+            {
+                return this;
+            }
+
+            if (segment == "{index}")
+            {
+                return Provider.Methods.Where(m => m.Method.Name == "Index" && m.MetaData.SupportedMethods.Contains(new FlexibleRequestMethod(RequestMethod.GET)))
+                                       .FirstOrDefault();
+            }
+
+            return null;
         }
 
         #endregion

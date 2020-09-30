@@ -18,13 +18,13 @@ namespace GenHTTP.Modules.Webservices.Provider
 
     public class ResourceRouter : IHandler
     {
-        private static readonly Regex EMPTY = new Regex("^(/|)$", RegexOptions.Compiled);
+        private static readonly MethodRouting EMPTY = new MethodRouting("^(/|)$", null);
 
         private static readonly Regex VAR_PATTERN = new Regex(@"\:([a-z]+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         #region Get-/Setters
 
-        private MethodHandler Methods { get; }
+        private MethodCollection Methods { get; }
 
         public IHandler Parent { get; }
 
@@ -43,12 +43,10 @@ namespace GenHTTP.Modules.Webservices.Provider
             Instance = instance;
             Serialization = formats;
 
-            var methods = new List<MethodProvider>(AnalyzeMethods(instance.GetType()));
-
-            Methods = new MethodHandler(this, methods);
+            Methods = new MethodCollection(this, AnalyzeMethods(instance.GetType()));
         }
 
-        private IEnumerable<MethodProvider> AnalyzeMethods(Type type)
+        private IEnumerable<Func<IHandler, MethodHandler>> AnalyzeMethods(Type type)
         {
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance))
             {
@@ -58,12 +56,12 @@ namespace GenHTTP.Modules.Webservices.Provider
                 {
                     var path = DeterminePath(attribute);
 
-                    yield return new MethodProvider(this, method, path, () => Instance, attribute, null, GetResponse, Serialization);
+                    yield return (parent) => new MethodHandler(parent, method, path, () => Instance, attribute, null, GetResponse, Serialization);
                 }
             }
         }
 
-        private Regex DeterminePath(ResourceMethodAttribute metaData)
+        private MethodRouting DeterminePath(ResourceMethodAttribute metaData)
         {
             var path = metaData.Path;
 
@@ -77,7 +75,9 @@ namespace GenHTTP.Modules.Webservices.Provider
                     builder.Replace(match.Value, match.Groups[1].Value.ToParameter());
                 }
 
-                return new Regex($"^/{builder}$", RegexOptions.Compiled);
+                var splitted = path.Split("/".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+
+                return new MethodRouting($"^/{builder}$", (splitted.Length > 0) ? splitted[0] : null);
             }
 
             return EMPTY;
@@ -91,7 +91,7 @@ namespace GenHTTP.Modules.Webservices.Provider
 
         public IResponse? Handle(IRequest request) => Methods.Handle(request);
 
-        private IResponse GetResponse(IRequest request, object? result)
+        private IResponse GetResponse(IRequest request, IHandler _, object? result)
         {
             // no result = 204
             if (result == null)

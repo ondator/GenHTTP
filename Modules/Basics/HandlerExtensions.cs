@@ -72,11 +72,13 @@ namespace GenHTTP.Modules.Basics
             }
         }
 
-        public static WebPath GetRoot(this IHandler handler, IHandler root, bool trailingSlash)
+        public static WebPath GetRoot(this IHandler handler, IRequest request, bool trailingSlash)
         {
             var path = new PathBuilder(trailingSlash);
 
             var current = handler;
+
+            var root = request.Server.Handler;
 
             IHandler? child = null;
 
@@ -84,7 +86,7 @@ namespace GenHTTP.Modules.Basics
             {
                 if (current is IRootPathAppender appender)
                 {
-                    appender.Append(path, child);
+                    appender.Append(path, request, child);
                 }
 
                 if (current == root)
@@ -106,7 +108,7 @@ namespace GenHTTP.Modules.Basics
         {
             return new List<ContentElement>()
             {
-                new ContentElement(handler.GetRoot(request.Server.Handler, false), title, contentType, null)
+                new ContentElement(handler.GetRoot(request, false), title, contentType, null)
             };
         }
 
@@ -114,7 +116,7 @@ namespace GenHTTP.Modules.Basics
         {
             return new List<ContentElement>()
             {
-                new ContentElement(handler.GetRoot(request.Server.Handler, false), title, contentType, null)
+                new ContentElement(handler.GetRoot(request, false), title, contentType, null)
             };
         }
 
@@ -154,7 +156,7 @@ namespace GenHTTP.Modules.Basics
 
                         if (responsible != null)
                         {
-                            var targetParts = new List<string>(responsible.GetRoot(root, false).Parts);
+                            var targetParts = new List<string>(responsible.GetRoot(request, false).Parts);
 
                             for (int i = 1; i < parts.Length; i++)
                             {
