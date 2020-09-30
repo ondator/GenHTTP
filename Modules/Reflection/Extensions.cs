@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Reflection;
 
+using GenHTTP.Api.Content;
+using GenHTTP.Api.Protocol;
+
 namespace GenHTTP.Modules.Reflection
 {
 

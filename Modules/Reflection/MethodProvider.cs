@@ -10,7 +10,9 @@ using System.Threading.Tasks;
 using GenHTTP.Api.Content;
 using GenHTTP.Api.Protocol;
 
+using GenHTTP.Modules.Conversion;
 using GenHTTP.Modules.Conversion.Providers;
+using GenHTTP.Modules.Conversion.Providers.Forms;
 
 namespace GenHTTP.Modules.Reflection
 {
@@ -25,6 +27,7 @@ namespace GenHTTP.Modules.Reflection
     /// </remarks>
     public class MethodProvider : IHandler
     {
+        private static FormFormat _FormFormat = new FormFormat();
 
         #region Get-/Setters
 
@@ -97,6 +100,8 @@ namespace GenHTTP.Modules.Reflection
 
             var sourceParameters = ParsedPath.Match(request.Target.GetRemaining().ToString());
 
+            var bodyArguments = (targetParameters.Length > 0) ? _FormFormat.GetContent(request) : null;
+
             for (int i = 0; i < targetParameters.Length; i++)
             {
                 var par = targetParameters[i];
@@ -134,15 +139,25 @@ namespace GenHTTP.Modules.Reflection
 
                     if (sourceArgument.Success)
                     {
-                        targetArguments[i] = ChangeType(sourceArgument.Value, par.ParameterType);
+                        targetArguments[i] = sourceArgument.Value.ConvertTo(par.ParameterType);
                         continue;
                     }
 
                     // is there a query parameter?
-                    if (request.Query.TryGetValue(par.Name, out var value))
+                    if (request.Query.TryGetValue(par.Name, out var queryValue))
                     {
-                        targetArguments[i] = ChangeType(value, par.ParameterType);
+                        targetArguments[i] = queryValue.ConvertTo(par.ParameterType);
                         continue;
+                    }
+
+                    // is there a parameter from the body?
+                    if (bodyArguments != null)
+                    {
+                        if (bodyArguments.TryGetValue(par.Name, out var bodyValue))
+                        {
+                            targetArguments[i] = bodyValue.ConvertTo(par.ParameterType);
+                            continue;
+                        }
                     }
 
                     // assume the default value
@@ -150,8 +165,6 @@ namespace GenHTTP.Modules.Reflection
                 }
                 else
                 {
-                    // ToDo: form encoding
-
                     // deserialize from body
                     var deserializer = Serialization.GetDeserialization(request);
 
@@ -187,30 +200,6 @@ namespace GenHTTP.Modules.Reflection
         }
 
         public IEnumerable<ContentElement> GetContent(IRequest request) => Enumerable.Empty<ContentElement>();
-
-        private object? ChangeType(string value, Type type)
-        {
-            if (string.IsNullOrEmpty(value) && Nullable.GetUnderlyingType(type) != null)
-            {
-                return null;
-            }
-
-            try
-            {
-                var actualType = Nullable.GetUnderlyingType(type) ?? type;
-
-                if (type.IsEnum)
-                {
-                    return Enum.Parse(actualType, value);
-                }
-
-                return Convert.ChangeType(value, actualType);
-            }
-            catch (Exception e)
-            {
-                throw new ProviderException(ResponseStatus.BadRequest, $"Unable to convert value '{value}' to type '{type}'", e);
-            }
-        }
 
         #endregion
 

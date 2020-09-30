@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -43,21 +44,21 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
 
             foreach (var property in Type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
-                var value = property.GetValue(Data);
+                var value = DeriveValue(property.GetValue(Data), property.PropertyType);
 
                 if (value != null)
                 {
-                    query[property.Name] = value.ToString();
+                    query[property.Name] = Convert.ToString(value, CultureInfo.InvariantCulture);
                 }
             }
 
-            foreach (var property in Type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var field in Type.GetFields(BindingFlags.Public | BindingFlags.Instance))
             {
-                var value = property.GetValue(Data);
+                var value = DeriveValue(field.GetValue(Data), field.FieldType);
 
                 if (value != null)
                 {
-                    query[property.Name] = value.ToString();
+                    query[field.Name] = Convert.ToString(value, CultureInfo.InvariantCulture);
                 }
             }
 
@@ -66,6 +67,16 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
                                 .Replace("%2b", "+");
 
             await writer.WriteAsync(replaced);
+        }
+
+        private object? DeriveValue(object? value, Type sourceType)
+        {
+            if (sourceType == typeof(bool) && value != null)
+            {
+                return ((bool)value == true) ? 1 : 0;
+            }
+
+            return value;
         }
 
         #endregion

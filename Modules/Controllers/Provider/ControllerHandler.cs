@@ -14,6 +14,10 @@ using GenHTTP.Modules.Reflection;
 namespace GenHTTP.Modules.Controllers.Provider
 {
 
+    // ToDo: Enable routing (IRootPathAppender, IHandlerResolver)
+
+    // ToDo: Enable proper content (test with sitemap)
+
     public class ControllerHandler<T> : IHandler where T : new()
     {
         private static readonly Regex EMPTY = new Regex("^(/|)$", RegexOptions.Compiled);

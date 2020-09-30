@@ -38,6 +38,12 @@ namespace GenHTTP.Testing.Acceptance.Modules.Mvc
                 return Content.From(query?.ToString() ?? "Action");
             }
 
+            [ControllerAction(RequestMethod.PUT)]
+            public IHandlerBuilder Action(int? value1, string value2)
+            {
+                return Content.From((value1?.ToString() ?? "Action") + $" {value2}");
+            }
+
             public IHandlerBuilder Action([FromPath] int id)
             {
                 return Content.From(id.ToString());
@@ -93,6 +99,27 @@ namespace GenHTTP.Testing.Acceptance.Modules.Mvc
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("815", response.GetContent());
+        }
+
+        [Fact]
+        public void TestActionWithQueryFromBody()
+        {
+            using var runner = GetRunner();
+
+            var request = runner.GetRequest("/t/action/");
+
+            request.Method = "PUT";
+            request.ContentType = "application/x-www-form-urlencoded";
+
+            using (var input = new StreamWriter(request.GetRequestStream()))
+            {
+                input.Write("value2=test");
+            }
+
+            using var response = runner.GetResponse(request);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal("Action test", response.GetContent());
         }
 
         [Fact]
@@ -156,7 +183,15 @@ namespace GenHTTP.Testing.Acceptance.Modules.Mvc
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         }
 
-        // ToDo: Test non matching route
+        [Fact]
+        public void TestNonExistingAction()
+        {
+            using var runner = GetRunner();
+
+            using var response = runner.GetResponse("/t/nope/");
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
 
         #endregion
 

@@ -1,13 +1,12 @@
-﻿using System;
+﻿using GenHTTP.Api.Content;
+using GenHTTP.Api.Protocol;
+using GenHTTP.Modules.Basics;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Web;
-
-using GenHTTP.Api.Content;
-using GenHTTP.Api.Protocol;
-
-using GenHTTP.Modules.Basics;
 
 namespace GenHTTP.Modules.Conversion.Providers.Forms
 {
@@ -27,7 +26,7 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
             var query = HttpUtility.ParseQueryString(content);
 
             var constructor = type.GetConstructor(EMPTY_CONSTRUCTOR);
-            
+
             if (constructor == null)
             {
                 throw new ProviderException(ResponseStatus.InternalServerError, $"Instance of type '{type}' cannot be constructed as there is no parameterless constructor");
@@ -45,7 +44,7 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
 
                     if (property != null)
                     {
-                        property.SetValue(result, Convert.ChangeType(value, property.PropertyType));
+                        property.SetValue(result, value.ConvertTo(property.PropertyType));
                     }
                     else
                     {
@@ -53,7 +52,7 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
 
                         if (field != null)
                         {
-                            field.SetValue(result, Convert.ChangeType(value, field.FieldType));
+                            field.SetValue(result, value.ConvertTo(field.FieldType));
                         }
                     }
                 }
@@ -67,6 +66,32 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
             return request.Respond()
                           .Content(new FormContent(response.GetType(), response))
                           .Type(ContentType.ApplicationWwwFormUrlEncoded);
+        }
+
+        public Dictionary<string, string>? GetContent(IRequest request)
+        {
+            if ((request.Content != null) && (request.ContentType != null))
+            {
+                if (request.ContentType.Value == ContentType.ApplicationWwwFormUrlEncoded)
+                {
+                    using var reader = new StreamReader(request.Content);
+
+                    var content = reader.ReadToEnd();
+
+                    var query = HttpUtility.ParseQueryString(content);
+
+                    var result = new Dictionary<string, string>(query.Count);
+
+                    foreach (var key in query.AllKeys)
+                    {
+                        result.Add(key, query[key]);
+                    }
+
+                    return result;
+                }
+            }
+
+            return null;
         }
 
     }
