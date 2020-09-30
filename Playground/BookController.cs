@@ -40,7 +40,7 @@ namespace GenHTTP.Playground
 
             _Books.Add(book);
 
-            return Redirect.To("../"); // ToDo: Routing-Redirect, e.g. Redirect.To("{index}", handler)
+            return Redirect.To("{index}", true);
         }
 
     }

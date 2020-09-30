@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -74,9 +75,7 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
             {
                 if (request.ContentType.Value == ContentType.ApplicationWwwFormUrlEncoded)
                 {
-                    using var reader = new StreamReader(request.Content);
-
-                    var content = reader.ReadToEnd();
+                    var content = GetRequestContent(request);
 
                     var query = HttpUtility.ParseQueryString(content);
 
@@ -92,6 +91,17 @@ namespace GenHTTP.Modules.Conversion.Providers.Forms
             }
 
             return null;
+        }
+
+        private string GetRequestContent(IRequest request)
+        {
+            using var reader = new StreamReader(request.Content, Encoding.UTF8, true, 4096, true);
+
+            var content = reader.ReadToEnd();
+
+            request.Content?.Seek(0, SeekOrigin.Begin);
+
+            return content;
         }
 
     }

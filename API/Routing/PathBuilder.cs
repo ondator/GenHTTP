@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 using GenHTTP.Api.Infrastructure;
 
@@ -26,6 +27,12 @@ namespace GenHTTP.Api.Routing
         {
             _Segments = new List<string>(parts);
             _TrailingSlash = trailingSlash;
+        }
+
+        public PathBuilder(string path)
+        {
+            _Segments = new List<string>(path.Split("/".ToCharArray(), StringSplitOptions.RemoveEmptyEntries));
+            _TrailingSlash = path.EndsWith('/');
         }
 
         #endregion

@@ -33,8 +33,8 @@ namespace GenHTTP.Modules.Conversion
 
                 if (actualType == typeof(bool))
                 {
-                    if (value == "1") return true;
-                    else if (value == "0") return false;
+                    if (value == "1" || value == "on") return true;
+                    else if (value == "0" || value == "off") return false;
                 }
 
                 return Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);

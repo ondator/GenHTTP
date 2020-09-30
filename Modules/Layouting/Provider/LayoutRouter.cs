@@ -61,7 +61,7 @@ namespace GenHTTP.Modules.Layouting.Provider
                 // force a trailing slash to prevent duplicate content
                 if (!request.Target.Path.TrailingSlash)
                 {
-                    return Redirect.To(request, $"{request.Target.Path}/")
+                    return Redirect.To($"{request.Target.Path}/")
                                    .Build(this)
                                    .Handle(request);
                 }

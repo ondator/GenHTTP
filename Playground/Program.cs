@@ -21,6 +21,7 @@ namespace Playground
                        .Handler(layout)
                        .Console()
                        .Defaults()
+                       .Development()
                        .Run();
         }
 

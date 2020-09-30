@@ -118,12 +118,25 @@ namespace GenHTTP.Modules.Basics
             };
         }
 
-        public static string? Route(this IHandler handler, IRequest request, string? route)
+        public static string? Route(this IHandler handler, IRequest request, string? route, bool relative = true)
         {
             if (route != null)
             {
-                if (route.StartsWith(".") || route.StartsWith('/') || route.StartsWith("http"))
+                if (route.StartsWith("http") || route.StartsWith('/'))
                 {
+                    return route;
+                }
+
+                if (route.StartsWith("."))
+                {
+                    if (!relative)
+                    {
+                        var routePath = new PathBuilder(route).Build();
+
+                        return request.Target.Path.Combine(routePath)
+                                                  .ToString();
+                    }
+
                     return route;
                 }
 
@@ -150,7 +163,12 @@ namespace GenHTTP.Modules.Basics
 
                             var targetPath = new WebPath(targetParts, route.EndsWith('/'));
 
-                            return request.Target.Path.RelativeTo(targetPath);
+                            if (relative)
+                            {
+                                return request.Target.Path.RelativeTo(targetPath);
+                            }
+
+                            return targetPath.ToString();
                         }
                     }
                 }

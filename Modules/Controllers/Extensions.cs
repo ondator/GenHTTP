@@ -27,7 +27,7 @@ namespace GenHTTP.Modules.Controllers
         /// <param name="builder">The layout the controller should be added to</param>
         public static LayoutBuilder IndexController<T>(this LayoutBuilder builder) where T : new()
         {
-            builder.Index(Controller.From<T>());
+            builder.Index(Controller.From<T>());  // ToDo: Fallback & Test!
             return builder;
         }
 
